@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sahne — Video Oluştur</title>
+<meta name="description" content="Ürün fotoğrafını yükle, bilgilerini gir, yapay zeka reklam videosunu üretsin, sonra sohbet ederek düzenle.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0A0910; --bg-alt:#0F0D16; --card:#151220; --card-hi:#1B1727;
+    --ink:#F5F3FA; --ink-soft:#9791A8; --ink-dim:#635D75;
+    --purple:#8B5CF6; --purple-light:#B197FC; --purple-glow:rgba(139,92,246,0.25);
+    --green:#34D399; --amber:#FBBF24;
+    --line: rgba(255,255,255,0.10);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;min-height:100vh;
+    display:flex;flex-direction:column;
+  }
+  img,video{max-width:100%;display:block;}
+  a{color:inherit;text-decoration:none;}
+  button{font-family:inherit;}
+  .wrap{max-width:640px;margin:0 auto;padding:0 20px;width:100%;}
+  ::selection{background:var(--purple-glow);}
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible{
+    outline:2px solid var(--purple-light); outline-offset:2px;
+  }
+
+  header{ padding:20px 0; }
+  .header-inner{
+    max-width:640px;margin:0 auto;padding:0 20px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-weight:800;font-size:19px;letter-spacing:-0.02em;}
+  .logo .dot{color:var(--purple-light);}
+  .header-user{ display:flex;align-items:center;gap:10px; }
+  .header-user span{ font-size:12.5px;color:var(--ink-soft); }
+  .btn-logout{
+    padding:7px 12px;border-radius:7px;border:1px solid var(--line);background:transparent;
+    color:var(--ink-soft);font-size:12px;font-weight:600;cursor:pointer;
+  }
+  .btn-logout:hover{ color:var(--ink);border-color:var(--ink-dim); }
+
+  /* ---- AUTH VIEW ---- */
+  #authView{ flex:1;display:flex;align-items:center;justify-content:center;padding:20px; }
+  .auth-card{
+    width:100%;max-width:360px;border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--card);padding:30px 26px;
+  }
+  .auth-card .logo{ text-align:center;font-size:22px;margin-bottom:6px; }
+  .auth-card p.sub{ text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:22px; }
+  .auth-tabs{ display:flex;gap:6px;margin-bottom:20px;background:var(--bg-alt);border-radius:9px;padding:4px; }
+  .auth-tab{
+    flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--ink-soft);
+    font-size:13px;font-weight:700;cursor:pointer;
+  }
+  .auth-tab.active{ background:var(--purple);color:#fff; }
+  .auth-field{ margin-bottom:12px; }
+  .auth-field label{
+    display:block;font-size:11px;font-weight:700;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;
+  }
+  .auth-field input{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font-family:'Inter',sans-serif;font-size:14px;background:var(--bg-alt);color:var(--ink);
+  }
+  .auth-field input:focus{ outline:none;border-color:var(--purple); }
+  .auth-submit{
+    width:100%;padding:12px;border:none;border-radius:8px;background:var(--purple);
+    color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px;
+  }
+  .auth-submit:hover{ background:#7C3AED; }
+  .auth-submit:disabled{ opacity:0.55;cursor:default; }
+  .auth-msg{ font-size:12.5px;color:var(--ink-soft);margin-top:12px;text-align:center;min-height:16px; }
+
+  /* ---- HOME VIEW ---- */
+  #homeView{ flex:1;display:flex;flex-direction:column;padding:8px 0 48px; }
+  .home-topbar{ display:flex;align-items:center;justify-content:space-between;margin-bottom:22px; }
+  .home-topbar h2{ font-size:clamp(20px,3.6vw,25px);font-weight:800;letter-spacing:-0.015em; }
+  .btn-new{
+    display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:9px;border:none;
+    background:var(--purple);color:#fff;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;
+  }
+  .btn-new:hover{ background:#7C3AED; }
+
+  .empty-state{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:40px 20px;gap:14px;
+  }
+  .empty-icon{
+    width:64px;height:64px;border-radius:18px;background:var(--card);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:4px;
+  }
+  .empty-state h3{ font-size:19px;font-weight:800; }
+  .empty-state p{ color:var(--ink-soft);font-size:13.5px;max-width:280px; }
+  .empty-state .btn-new{ margin-top:10px;padding:13px 24px;font-size:14px; }
+
+  .project-list{ display:flex;flex-direction:column;gap:10px; }
+  .project-card{
+    display:flex;align-items:center;gap:13px;padding:12px;border:1px solid var(--line);
+    border-radius:12px;background:var(--card);cursor:pointer;text-align:left;width:100%;
+    transition:border-color 0.15s ease,background 0.15s ease;
+  }
+  .project-card:hover{ border-color:var(--ink-dim);background:var(--card-hi); }
+  .pc-thumb{
+    flex-shrink:0;width:54px;height:54px;border-radius:9px;background:var(--bg-alt);border:1px solid var(--line);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink-dim);
+  }
+  .pc-thumb img{ width:100%;height:100%;object-fit:cover; }
+  .pc-body{ flex:1;min-width:0; }
+  .pc-title{
+    font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;
+  }
+  .pc-meta{ display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-soft); }
+  .pc-status{ display:inline-flex;align-items:center;gap:5px;font-weight:600; }
+  .pc-status .dot{ width:6px;height:6px;border-radius:50%; }
+  .pc-status.devam .dot{ background:var(--amber); }
+  .pc-status.devam{ color:var(--amber); }
+  .pc-status.tamamlandi .dot{ background:var(--green); }
+  .pc-status.tamamlandi{ color:var(--green); }
+  .pc-arrow{ flex-shrink:0;color:var(--ink-dim);font-size:16px; }
+
+  /* ---- FORM VIEW ---- */
+  #formView{ flex:1;display:flex;align-items:center;padding:16px 0 48px; }
+  .form-back{
+    display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);font-size:13px;font-weight:600;
+    background:none;border:none;cursor:pointer;margin-bottom:16px;padding:0;
+  }
+  .form-back:hover{ color:var(--ink); }
+  .section-head{ text-align:center;margin-bottom:22px; }
+  .section-head h2{ font-size:clamp(22px,4vw,28px);font-weight:800;letter-spacing:-0.015em; }
+  .section-head p{ color:var(--ink-soft);font-size:13.5px;margin-top:6px; }
+
+  .form-shell{ border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--card); }
+  .stage{
+    position:relative;min-height:220px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(160deg,#3B2170,#100D18);overflow:hidden;padding:20px;
+  }
+  .product-card{
+    position:relative;z-index:2;width:100%;max-width:200px;aspect-ratio:1/1.05;background:rgba(255,255,255,0.04);
+    border:1.5px dashed rgba(255,255,255,0.28);border-radius:10px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:10px;text-align:center;font-size:12.5px;color:var(--ink-soft);
+    padding:16px;transition:transform 0.4s ease,border 0.2s ease,background 0.2s ease;overflow:hidden;
+  }
+  .product-card.filled{ border:1px solid var(--line);background:#181420;box-shadow:0 20px 44px rgba(0,0,0,0.45); }
+  .product-card .pc-icon{ font-size:24px;opacity:0.7; }
+  .stage.rendering .product-card{ transform:scale(0.97); }
+  .badge{
+    position:absolute;top:12px;left:12px;z-index:3;background:rgba(10,9,16,0.8);
+    border:1px solid var(--line);padding:5px 11px;border-radius:20px;font-size:11px;
+    font-weight:600;display:flex;align-items:center;gap:6px;
+  }
+  .dot-live{width:6px;height:6px;border-radius:50%;background:var(--purple-light);}
+
+  .panel{ padding:26px;display:flex;flex-direction:column;gap:14px; }
+  .field label{
+    display:block;font-size:11px;font-weight:700;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;
+  }
+  .field input[type=text], .field textarea{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font-family:'Inter',sans-serif;font-size:14px;background:var(--bg-alt);color:var(--ink);resize:vertical;
+  }
+  .field textarea{min-height:52px;}
+  .field input::placeholder, .field textarea::placeholder{ color:var(--ink-dim); }
+  .field input:focus, .field textarea:focus{ outline:none;border-color:var(--purple); }
+  .upload{
+    border:1.5px dashed var(--line);border-radius:8px;padding:13px;text-align:center;
+    font-size:13px;color:var(--ink-soft);background:var(--bg-alt);cursor:pointer;
+  }
+
+  .duration-row{ display:flex;gap:8px; }
+  .duration-btn{
+    flex:1;padding:11px 0;border-radius:8px;border:1px solid var(--line);background:var(--bg-alt);
+    font-size:13.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;position:relative;
+  }
+  .duration-btn.active{ background:var(--purple);border-color:var(--purple);color:#fff; }
+  .duration-btn:disabled{ opacity:0.35;cursor:not-allowed; }
+  .duration-btn .soon{
+    display:block;font-size:8.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;
+    margin-top:2px;opacity:0.8;
+  }
+
+  .go{
+    padding:13px;border:none;border-radius:8px;background:var(--purple);
+    color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;
+  }
+  .go:hover{ background:#7C3AED; }
+  .go:disabled{ opacity:0.55;cursor:default; }
+  .hint{ font-size:12px;color:var(--ink-soft);min-height:14px; }
+
+  /* ---- CHAT VIEW ---- */
+  .chat-view{ flex:1;display:flex;flex-direction:column;height:100vh; }
+  .chat-header{
+    display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+    border-bottom:1px solid var(--line);flex-shrink:0;gap:8px;
+  }
+  .chat-header-left{ display:flex;align-items:center;gap:10px;min-width:0; }
+  .chat-back{
+    flex-shrink:0;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:transparent;
+    color:var(--ink-soft);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .chat-back:hover{ color:var(--ink);border-color:var(--ink-dim); }
+  .chat-title{ font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .chat-finish{
+    flex-shrink:0;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--ink-soft);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .chat-finish:hover{ color:var(--ink);border-color:var(--ink-dim); }
+  .chat-finish.done{ background:rgba(52,211,153,0.12);border-color:rgba(52,211,153,0.35);color:var(--green); }
+
+  .chat-messages{ flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px; }
+  .msg{ display:flex;flex-direction:column;gap:8px;max-width:82%; }
+  .msg.user{ align-self:flex-end;align-items:flex-end; }
+  .msg.assistant{ align-self:flex-start;align-items:flex-start; }
+  .msg .bubble{
+    padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.5;
+  }
+  .msg.user .bubble{ background:var(--purple);color:#fff;border-bottom-right-radius:4px; }
+  .msg.assistant .bubble{ background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px; }
+  .msg .media{
+    border-radius:12px;overflow:hidden;border:1px solid var(--line);max-width:260px;background:#000;
+  }
+  .msg .media video, .msg .media img{ width:100%;display:block; }
+  .msg-edit-link{
+    font-size:11.5px;color:var(--purple-light);background:none;border:none;cursor:pointer;
+    font-weight:600;padding:0;
+  }
+  .typing{ display:flex;gap:4px;padding:12px 14px; }
+  .typing span{
+    width:6px;height:6px;border-radius:50%;background:var(--ink-dim);
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){animation-delay:0.15s;}
+  .typing span:nth-child(3){animation-delay:0.3s;}
+  @keyframes blink{ 0%,80%,100%{opacity:0.25;} 40%{opacity:1;} }
+
+  .edit-drawer{ display:none;border-top:1px solid var(--line);padding:16px 20px;background:var(--bg-alt); }
+  .edit-drawer.open{ display:block; }
+  .edit-drawer-head{ display:flex;justify-content:space-between;align-items:center;margin-bottom:10px; }
+  .edit-drawer-head span{ font-size:12.5px;font-weight:700;color:var(--ink-soft); }
+  .edit-drawer-close{ background:none;border:none;color:var(--ink-soft);font-size:16px;cursor:pointer; }
+  .frame-preview{ width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden;margin-bottom:10px; }
+  .frame-preview img, .frame-preview video{ width:100%;height:100%;object-fit:contain; }
+  .timeline{ display:flex;gap:2px;margin-bottom:10px;overflow-x:auto;padding-bottom:6px; }
+  .timeline .tick{
+    flex:0 0 auto;width:32px;height:24px;border-radius:5px;background:var(--card);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    font-size:9.5px;color:var(--ink-soft);cursor:pointer;font-weight:600;
+  }
+  .timeline .tick.active{ background:var(--purple);border-color:var(--purple);color:#fff; }
+  .ts-label{ font-size:12px;color:var(--ink-soft);margin-bottom:8px;font-weight:600; }
+  .ts-label span{color:var(--purple-light);}
+  .edit-drawer textarea{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font-family:'Inter',sans-serif;font-size:14px;background:var(--card);color:var(--ink);resize:vertical;min-height:50px;
+  }
+  .edit-apply{
+    width:100%;padding:11px;border:none;border-radius:8px;background:var(--purple);
+    color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-top:8px;
+  }
+  .edit-apply:disabled{opacity:0.55;}
+  .edit-hint{font-size:11px;color:var(--ink-soft);margin-top:8px;}
+
+  .chat-inputbar{
+    display:flex;align-items:flex-end;gap:8px;padding:14px 20px;border-top:1px solid var(--line);
+    flex-shrink:0;background:var(--bg);
+  }
+  .chat-attach{
+    flex-shrink:0;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+    color:var(--ink-soft);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .chat-attach.has-file{ border-color:var(--purple);color:var(--purple-light); }
+  #chatInput{
+    flex:1;border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--card);
+    color:var(--ink);font-family:'Inter',sans-serif;font-size:14px;resize:none;max-height:100px;
+  }
+  #chatInput::placeholder{ color:var(--ink-dim); }
+  #chatInput:focus{ outline:none;border-color:var(--purple); }
+  .chat-send{
+    flex-shrink:0;width:40px;height:40px;border-radius:10px;border:none;background:var(--purple);
+    color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .chat-send:hover{ background:#7C3AED; }
+  .chat-send:disabled{ opacity:0.5;cursor:default; }
+  .attach-preview{ font-size:11px;color:var(--purple-light);padding:0 20px 8px;display:none; }
+  .attach-preview.show{ display:block; }
+</style>
+</head>
+<body>
+  <header id="mainHeader"><div class="header-inner"><div class="logo">sahne<span class="dot">.</span></div><div class="header-user" id="headerUser"></div></div></header>
+
+  <!-- AUTH VIEW -->
+  <main id="authView" style="display:none;">
+    <div class="auth-card">
+      <button class="form-back" id="authClose" style="margin-bottom:14px;">← Giriş yapmadan devam et</button>
+      <div class="logo">sahne<span class="dot">.</span></div>
+      <p class="sub">Projelerini hesabına kaydetmek için giriş yap ya da hesap oluştur.</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin">Giriş Yap</button>
+        <button class="auth-tab" id="tabSignup">Kayıt Ol</button>
+      </div>
+      <div class="auth-field"><label for="authEmail">E-posta</label><input type="text" id="authEmail" placeholder="ornek@ajans.com"></div>
+      <div class="auth-field"><label for="authPassword">Şifre</label><input type="password" id="authPassword" placeholder="••••••••"></div>
+      <button class="auth-submit" id="authSubmit">Giriş Yap</button>
+      <div class="auth-msg" id="authMsg"></div>
+    </div>
+  </main>
+
+  <!-- HOME VIEW -->
+  <main id="homeView" style="display:none;">
+    <div class="wrap" id="homeWrap"></div>
+  </main>
+
+  <!-- FORM VIEW -->
+  <main id="formView" style="display:none;">
+    <div class="wrap">
+      <button class="form-back" id="formBack">← Projelerim</button>
+      <div class="section-head">
+        <h2>Videoyu oluştur</h2>
+        <p>Ürününü yükle, bilgilerini gir, saniyeyi seç.</p>
+      </div>
+      <div class="form-shell">
+        <div class="stage" id="stage">
+          <div class="badge"><span class="dot-live"></span> <span id="badgeText">Canlı önizleme</span></div>
+          <div class="product-card" id="productCard"><span class="pc-icon">🎬</span>Ürün fotoğrafın, video sahnene dönüşür</div>
+        </div>
+        <div class="panel">
+          <div class="field">
+            <label for="up">Ürün yükleme</label>
+            <div class="upload" id="uploadBox">Dosya seç ya da sürükle bırak</div>
+            <input type="file" id="fileInput" accept="image/*" style="display:none;">
+          </div>
+          <div class="field"><label for="what">Ürün hakkında bilgi</label><textarea id="what" placeholder="Örn: kadın oversize triko, siyah, pamuklu kumaş"></textarea></div>
+          <div class="field"><label for="scene">Reklam videosu hakkında bilgi</label><textarea id="scene" placeholder="Örn: stüdyo ışığında, minimal krem arka plan, sakin bir tempo"></textarea></div>
+          <div class="field">
+            <label>Video süresi</label>
+            <div class="duration-row">
+              <button class="duration-btn active" data-sec="5">5sn</button>
+              <button class="duration-btn" data-sec="10" disabled>10sn<span class="soon">yakında</span></button>
+              <button class="duration-btn" data-sec="15" disabled>15sn<span class="soon">yakında</span></button>
+              <button class="duration-btn" data-sec="30" disabled>30sn<span class="soon">yakında</span></button>
+            </div>
+          </div>
+          <button class="go" id="goBtn">Videoyu oluştur</button>
+          <div class="hint" id="hint">Video hazır olduğunda sohbet ekranına geçeceksin.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- CHAT VIEW -->
+  <div class="chat-view" id="chatView" style="display:none;">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <button class="chat-back" id="chatBack" title="Projelerime dön">←</button>
+        <div class="chat-title" id="chatTitle">sahne.</div>
+      </div>
+      <button class="chat-finish" id="chatFinish">Bitir</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+
+    <div class="edit-drawer" id="editDrawer">
+      <div class="edit-drawer-head">
+        <span>✎ Sahneyi düzenle</span>
+        <button class="edit-drawer-close" id="editDrawerClose">✕</button>
+      </div>
+      <div class="frame-preview" id="framePreview"></div>
+      <div class="ts-label">Seçili an: <span id="tsLabel">0.0sn</span></div>
+      <div class="timeline" id="timeline"></div>
+      <textarea id="editInstruction" placeholder="Bu anda ne değişsin?"></textarea>
+      <button class="edit-apply" id="editApply">Bu saniyeyi güncelle</button>
+      <div class="edit-hint" id="editHint">Seçtiğin saniyedeki kareyi düzenleyip videoya geri işler.</div>
+    </div>
+
+    <div class="attach-preview" id="attachPreview"></div>
+    <div class="chat-inputbar">
+      <button class="chat-attach" id="chatAttachBtn" title="Video veya görsel ekle">📎</button>
+      <input type="file" id="chatFileInput" accept="image/*,video/*" style="display:none;">
+      <textarea id="chatInput" rows="1" placeholder="Ne değiştirmek istersin? Örn: 3. saniyede ürün rengini değiştir, ya da yeni bir video ekle/çıkar..."></textarea>
+      <button class="chat-send" id="chatSend">➤</button>
+    </div>
+  </div>
+
+<script>
+  const WEBHOOK_URL = 'https://mervan55.app.n8n.cloud/webhook/ac236432-f820-4b67-9bf4-497bdccb6f83';       // n8n üretim workflow'u
+  const EDIT_WEBHOOK_URL = '';  // n8n saniye bazlı düzenleme workflow'u
+  const CHAT_WEBHOOK_URL = '';  // n8n sohbet/orkestrasyon workflow'u
+  const SUPABASE_URL = '';      // Supabase proje URL'in (örn: https://xxxx.supabase.co)
+  const SUPABASE_ANON_KEY = ''; // Supabase "anon public" key'in
+
+  // ================= SUPABASE (üyelik + veritabanı) =================
+  let sb = null;
+  let currentUser = null;
+  if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  // sb null ise (henüz Supabase bağlanmadıysa) site üyeliksiz/yerel modda çalışır — auth ekranı atlanır.
+
+  // ================= PROJE DEPOSU =================
+  const STORAGE_KEY = 'sahne_projects';
+  function loadProjectsLocal(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ return []; }
+  }
+  function saveProjectsLocal(list){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  }
+  async function loadProjects(){
+    if(sb && currentUser){
+      const { data, error } = await sb.from('projects').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending:false });
+      if(error || !data) return [];
+      return data.map(row => ({
+        id: row.id, title: row.title, status: row.status,
+        thumbnailUrl: row.thumbnail_url, currentVideoUrl: row.current_video_url,
+        messages: row.messages || [], createdAt: new Date(row.created_at).getTime(), updatedAt: new Date(row.updated_at).getTime()
+      }));
+    }
+    return loadProjectsLocal();
+  }
+  async function upsertProject(project){
+    if(sb && currentUser){
+      await sb.from('projects').upsert({
+        id: project.id, user_id: currentUser.id, title: project.title, status: project.status,
+        thumbnail_url: project.thumbnailUrl, current_video_url: project.currentVideoUrl,
+        messages: project.messages || [], updated_at: new Date().toISOString()
+      });
+      return;
+    }
+    const list = loadProjectsLocal();
+    const i = list.findIndex(p => p.id === project.id);
+    if(i >= 0) list[i] = project; else list.unshift(project);
+    saveProjectsLocal(list);
+  }
+  async function getProject(id){
+    if(sb && currentUser){
+      const { data } = await sb.from('projects').select('*').eq('id', id).eq('user_id', currentUser.id).single();
+      if(!data) return null;
+      return {
+        id: data.id, title: data.title, status: data.status,
+        thumbnailUrl: data.thumbnail_url, currentVideoUrl: data.current_video_url,
+        messages: data.messages || [], createdAt: new Date(data.created_at).getTime(), updatedAt: new Date(data.updated_at).getTime()
+      };
+    }
+    return loadProjectsLocal().find(p => p.id === id) || null;
+  }
+  function timeAgo(ts){
+    const diff = Math.floor((Date.now() - ts) / 1000);
+    if(diff < 60) return 'az önce';
+    if(diff < 3600) return Math.floor(diff/60) + ' dk önce';
+    if(diff < 86400) return Math.floor(diff/3600) + ' sa önce';
+    return Math.floor(diff/86400) + ' gün önce';
+  }
+
+  let currentProject = null; // aktif açık proje objesi
+
+  // ================= AUTH VIEW =================
+  const authView = document.getElementById('authView');
+  const tabLogin = document.getElementById('tabLogin');
+  const tabSignup = document.getElementById('tabSignup');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authSubmit = document.getElementById('authSubmit');
+  const authMsg = document.getElementById('authMsg');
+  const headerUser = document.getElementById('headerUser');
+  const authClose = document.getElementById('authClose');
+  let authMode = 'login';
+
+  authClose.addEventListener('click', ()=> showHome());
+
+  tabLogin.addEventListener('click', ()=>{
+    authMode = 'login';
+    tabLogin.classList.add('active'); tabSignup.classList.remove('active');
+    authSubmit.textContent = 'Giriş Yap'; authMsg.textContent = '';
+  });
+  tabSignup.addEventListener('click', ()=>{
+    authMode = 'signup';
+    tabSignup.classList.add('active'); tabLogin.classList.remove('active');
+    authSubmit.textContent = 'Kayıt Ol'; authMsg.textContent = '';
+  });
+
+  authSubmit.addEventListener('click', async ()=>{
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    if(!email || !password){
+      authMsg.textContent = 'E-posta ve şifre gerekli.';
+      authMsg.style.color = '#F87171';
+      return;
+    }
+    if(!sb){
+      authMsg.textContent = 'SUPABASE_URL/SUPABASE_ANON_KEY henüz bağlanmadı — demo modda üyelik devre dışı.';
+      authMsg.style.color = '#F87171';
+      return;
+    }
+    authSubmit.disabled = true;
+    authMsg.style.color = 'var(--ink-soft)';
+    authMsg.textContent = authMode === 'login' ? 'Giriş yapılıyor…' : 'Hesap oluşturuluyor…';
+    try{
+      const { data, error } = authMode === 'login'
+        ? await sb.auth.signInWithPassword({ email, password })
+        : await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      if(authMode === 'signup' && !data.session){
+        authMsg.textContent = 'Kayıt oldun! E-postana gelen onay linkine tıkla, sonra giriş yap.';
+        authMsg.style.color = 'var(--green)';
+        return;
+      }
+      currentUser = data.user;
+      await afterAuth();
+    }catch(err){
+      authMsg.textContent = err.message || 'Bir sorun oluştu.';
+      authMsg.style.color = '#F87171';
+    }finally{
+      authSubmit.disabled = false;
+    }
+  });
+
+  async function afterAuth(){
+    renderHeaderState();
+    await showHome();
+  }
+
+  function renderHeaderState(){
+    if(currentUser){
+      headerUser.innerHTML = `<span>${escapeHtml(currentUser.email)}</span><button class="btn-logout" id="logoutBtn">Çıkış</button>`;
+      document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+        await sb.auth.signOut();
+        currentUser = null;
+        renderHeaderState();
+        showHome();
+      });
+    }else if(sb){
+      headerUser.innerHTML = `<button class="btn-logout" id="loginBtn">Giriş Yap</button>`;
+      document.getElementById('loginBtn').addEventListener('click', showAuth);
+    }else{
+      headerUser.innerHTML = '';
+    }
+  }
+
+  function showAuth(){
+    mainHeader.style.display = 'none';
+    authView.style.display = 'flex';
+    homeView.style.display = 'none';
+    formView.style.display = 'none';
+    chatView.style.display = 'none';
+  }
+
+  async function initApp(){
+    if(sb){
+      const { data } = await sb.auth.getSession();
+      if(data.session) currentUser = data.session.user;
+    }
+    renderHeaderState();
+    // Giriş zorunlu değil — hesabı olsun olmasın herkes direkt ana sayfaya girer.
+    // Giriş yapmayan kişinin projeleri tarayıcıda (yerel) saklanır; giriş yapınca hesabına taşınır.
+    await showHome();
+  }
+
+  // ================= HOME VIEW =================
+  const mainHeader = document.getElementById('mainHeader');
+  const homeView = document.getElementById('homeView');
+  const homeWrap = document.getElementById('homeWrap');
+  const formView = document.getElementById('formView');
+  const chatView = document.getElementById('chatView');
+
+  async function showHome(){
+    currentProject = null;
+    mainHeader.style.display = '';
+    authView.style.display = 'none';
+    homeView.style.display = 'flex';
+    formView.style.display = 'none';
+    chatView.style.display = 'none';
+    await renderHome();
+  }
+
+  async function renderHome(){
+    const projects = await loadProjects();
+    if(projects.length === 0){
+      homeWrap.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🎬</div>
+          <h3>Henüz bir projen yok</h3>
+          <p>Ürün fotoğrafını yükleyip ilk reklam videonu birkaç dakikada oluştur.</p>
+          <button class="btn-new" id="emptyNewBtn">+ İlk projeni oluştur</button>
+        </div>`;
+      document.getElementById('emptyNewBtn').addEventListener('click', showForm);
+      return;
+    }
+    const cards = projects.map(p => {
+      const statusClass = p.status === 'tamamlandi' ? 'tamamlandi' : 'devam';
+      const statusLabel = p.status === 'tamamlandi' ? 'Tamamlandı' : 'Devam ediyor';
+      const thumb = p.thumbnailUrl
+        ? `<img src="${p.thumbnailUrl}">`
+        : '🎬';
+      return `
+        <button class="project-card" data-id="${p.id}">
+          <div class="pc-thumb">${thumb}</div>
+          <div class="pc-body">
+            <div class="pc-title">${escapeHtml(p.title || 'İsimsiz proje')}</div>
+            <div class="pc-meta">
+              <span class="pc-status ${statusClass}"><span class="dot"></span>${statusLabel}</span>
+              <span>· ${timeAgo(p.updatedAt)}</span>
+            </div>
+          </div>
+          <span class="pc-arrow">›</span>
+        </button>`;
+    }).join('');
+    homeWrap.innerHTML = `
+      <div class="home-topbar">
+        <h2>Projelerim</h2>
+        <button class="btn-new" id="homeNewBtn">+ Yeni Proje</button>
+      </div>
+      <div class="project-list">${cards}</div>`;
+    document.getElementById('homeNewBtn').addEventListener('click', showForm);
+    homeWrap.querySelectorAll('.project-card').forEach(card=>{
+      card.addEventListener('click', ()=> openProject(card.dataset.id));
+    });
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ================= FORM VIEW =================
+  const stage = document.getElementById('stage');
+  const productCard = document.getElementById('productCard');
+  const uploadBox = document.getElementById('uploadBox');
+  const fileInput = document.getElementById('fileInput');
+  const goBtn = document.getElementById('goBtn');
+  const badgeText = document.getElementById('badgeText');
+  const hint = document.getElementById('hint');
+  const durationBtns = document.querySelectorAll('.duration-btn');
+  const formBack = document.getElementById('formBack');
+  let uploaded = false;
+  let imageBase64 = null;
+  let duration = 5;
+
+  function showForm(){
+    mainHeader.style.display = 'none';
+    homeView.style.display = 'none';
+    formView.style.display = 'flex';
+    chatView.style.display = 'none';
+    // formu sıfırla
+    uploaded = false; imageBase64 = null; duration = 5;
+    uploadBox.textContent = 'Dosya seç ya da sürükle bırak';
+    productCard.innerHTML = '<span class="pc-icon">🎬</span>Ürün fotoğrafın, video sahnene dönüşür';
+    productCard.classList.remove('filled');
+    document.getElementById('what').value = '';
+    document.getElementById('scene').value = '';
+    hint.textContent = 'Video hazır olduğunda sohbet ekranına geçeceksin.';
+    hint.style.color = '';
+  }
+  formBack.addEventListener('click', showHome);
+
+  durationBtns.forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(b.disabled) return;
+      durationBtns.forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      duration = parseInt(b.dataset.sec, 10);
+    });
+  });
+
+  uploadBox.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', ()=>{
+    const file = fileInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      imageBase64 = reader.result;
+      uploaded = true;
+      uploadBox.textContent = '✓ ' + file.name;
+      productCard.innerHTML = `<img src="${imageBase64}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+      productCard.classList.add('filled');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  async function postJSON(url, payload){
+    const res = await fetch(url, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error('webhook hata: ' + res.status);
+    return res.json();
+  }
+
+  goBtn.addEventListener('click', async ()=>{
+    const what = document.getElementById('what').value.trim();
+    const scene = document.getElementById('scene').value.trim();
+    if(!uploaded || !what){
+      hint.textContent = 'Ürün fotoğrafı ve ürün bilgisi gerekli.';
+      hint.style.color = '#F87171';
+      return;
+    }
+    hint.style.color = '';
+    stage.classList.add('rendering');
+    badgeText.textContent = 'Video render ediliyor…';
+    goBtn.disabled = true;
+    goBtn.textContent = 'Oluşturuluyor…';
+
+    const payload = { product_image_url: imageBase64, product_desc: what, scene_desc: scene, duration_seconds: duration };
+
+    // Yeni proje kaydı oluştur
+    const project = {
+      id: 'p_' + Date.now(),
+      title: what,
+      status: 'devam',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      thumbnailUrl: imageBase64,
+      currentVideoUrl: null,
+      messages: []
+    };
+
+    try{
+      if(!WEBHOOK_URL) throw new Error('WEBHOOK_URL boş — demo modda çalışıyor');
+      const data = await postJSON(WEBHOOK_URL, payload);
+      if(data.success === false){
+        hint.textContent = data.error || 'Üretim başarısız oldu.';
+        hint.style.color = '#F87171';
+        return;
+      }
+      await startChatForNewProject(project, data.result_url, what, scene);
+    }catch(err){
+      await new Promise(r=>setTimeout(r, 1400));
+      await startChatForNewProject(project, null, what, scene, !WEBHOOK_URL);
+    }finally{
+      stage.classList.remove('rendering');
+      badgeText.textContent = 'Video hazır';
+      goBtn.disabled = false;
+      goBtn.textContent = 'Yeniden oluştur';
+    }
+  });
+
+  // ================= CHAT VIEW =================
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const chatSend = document.getElementById('chatSend');
+  const chatAttachBtn = document.getElementById('chatAttachBtn');
+  const chatFileInput = document.getElementById('chatFileInput');
+  const attachPreview = document.getElementById('attachPreview');
+  const chatBack = document.getElementById('chatBack');
+  const chatFinish = document.getElementById('chatFinish');
+  const chatTitle = document.getElementById('chatTitle');
+
+  const editDrawer = document.getElementById('editDrawer');
+  const editDrawerClose = document.getElementById('editDrawerClose');
+  const framePreview = document.getElementById('framePreview');
+  const timeline = document.getElementById('timeline');
+  const tsLabel = document.getElementById('tsLabel');
+  const editInstruction = document.getElementById('editInstruction');
+  const editApply = document.getElementById('editApply');
+  const editHint = document.getElementById('editHint');
+
+  let selectedTs = 0;
+  let pendingAttachment = null;
+
+  async function startChatForNewProject(project, videoUrl, productDesc, sceneDesc, demo){
+    project.currentVideoUrl = videoUrl;
+    currentProject = project;
+    enterChatUI();
+
+    addMessage(`Ürün: ${productDesc}${sceneDesc ? ' — Sahne: ' + sceneDesc : ''}`, 'user');
+    if(videoUrl){
+      addMessage('İşte ilk videon. Beğenmediğin bir an varsa yazabilir ya da yeni bir görsel/video ekleyip o kısmı değiştirmemi isteyebilirsin.', 'assistant', videoUrl, 'video');
+    }else{
+      addMessage(demo
+        ? 'Demo moddasın — WEBHOOK_URL ve CHAT_WEBHOOK_URL bağlanınca burada gerçek videon görünecek. Yine de sohbeti deneyebilirsin.'
+        : 'Üretim sırasında bir sorun oldu, ama sohbete buradan devam edebilirsin.', 'assistant');
+    }
+    await persistCurrentProject();
+  }
+
+  async function openProject(id){
+    const project = await getProject(id);
+    if(!project) return;
+    currentProject = project;
+    enterChatUI();
+    chatMessages.innerHTML = '';
+    (project.messages || []).forEach(m => renderMessage(m.text, m.role, m.mediaUrl, m.mediaType, false));
+    if(project.messages.length === 0){
+      addMessage('Bu projeye geri döndün. Devam edebilirsin.', 'assistant');
+    }
+  }
+
+  function enterChatUI(){
+    mainHeader.style.display = 'none';
+    homeView.style.display = 'none';
+    formView.style.display = 'none';
+    chatView.style.display = 'flex';
+    chatTitle.textContent = currentProject.title || 'sahne.';
+    updateFinishButton();
+  }
+
+  function updateFinishButton(){
+    const done = currentProject && currentProject.status === 'tamamlandi';
+    chatFinish.textContent = done ? '✓ Tamamlandı' : 'Bitir';
+    chatFinish.classList.toggle('done', done);
+  }
+
+  async function persistCurrentProject(){
+    if(!currentProject) return;
+    currentProject.updatedAt = Date.now();
+    await upsertProject(currentProject);
+  }
+
+  function addMessage(text, role, mediaUrl, mediaType){
+    renderMessage(text, role, mediaUrl, mediaType, true);
+  }
+
+  function renderMessage(text, role, mediaUrl, mediaType, persist){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + role;
+    let mediaHtml = '';
+    if(mediaUrl){
+      mediaHtml = mediaType === 'video'
+        ? `<div class="media"><video src="${mediaUrl}" controls loop muted playsinline></video></div>`
+        : `<div class="media"><img src="${mediaUrl}"></div>`;
+    }
+    let editLinkHtml = '';
+    if(role === 'assistant' && mediaType === 'video'){
+      editLinkHtml = `<button class="msg-edit-link" data-video="${mediaUrl}">✎ Bu videoyu saniye saniye düzenle</button>`;
+    }
+    wrap.innerHTML = `${mediaHtml}${text ? `<div class="bubble">${text}</div>` : ''}${editLinkHtml}`;
+    chatMessages.appendChild(wrap);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if(mediaType === 'video'){
+      wrap.querySelector('.msg-edit-link')?.addEventListener('click', (e)=> openEditDrawer(e.target.dataset.video));
+    }
+    if(persist && currentProject){
+      currentProject.messages = currentProject.messages || [];
+      currentProject.messages.push({ role, text, mediaUrl: mediaUrl || null, mediaType: mediaType || null });
+      if(mediaUrl && mediaType === 'video') currentProject.currentVideoUrl = mediaUrl;
+      persistCurrentProject();
+    }
+    return wrap;
+  }
+
+  function showTyping(){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg assistant';
+    wrap.id = 'typingIndicator';
+    wrap.innerHTML = `<div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+    chatMessages.appendChild(wrap);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  function hideTyping(){ document.getElementById('typingIndicator')?.remove(); }
+
+  chatAttachBtn.addEventListener('click', ()=> chatFileInput.click());
+  chatFileInput.addEventListener('change', ()=>{
+    const file = chatFileInput.files[0];
+    if(!file) return;
+    const isVideo = file.type.startsWith('video');
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      pendingAttachment = { base64: reader.result, type: isVideo ? 'video' : 'image', name: file.name };
+      chatAttachBtn.classList.add('has-file');
+      attachPreview.textContent = '📎 ' + file.name + ' eklendi — mesajınla birlikte gönderilecek';
+      attachPreview.classList.add('show');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  chatInput.addEventListener('input', ()=>{
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 100) + 'px';
+  });
+  chatInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendChatMessage(); }
+  });
+  chatSend.addEventListener('click', sendChatMessage);
+
+  async function sendChatMessage(){
+    const text = chatInput.value.trim();
+    if(!text && !pendingAttachment) return;
+    if(!currentProject) return;
+
+    // Bitmiş bir projeye yeni mesaj yazılınca otomatik "devam ediyor"a dön
+    if(currentProject.status === 'tamamlandi'){
+      currentProject.status = 'devam';
+      updateFinishButton();
+    }
+
+    const attachment = pendingAttachment;
+    addMessage(text || '(dosya eklendi)', 'user', attachment ? attachment.base64 : null, attachment ? attachment.type : null);
+    chatInput.value = '';
+    chatInput.style.height = 'auto';
+    pendingAttachment = null;
+    chatAttachBtn.classList.remove('has-file');
+    attachPreview.classList.remove('show');
+    chatSend.disabled = true;
+    showTyping();
+
+    const payload = {
+      message: text,
+      attachment_base64: attachment ? attachment.base64 : null,
+      attachment_type: attachment ? attachment.type : null,
+      current_video_url: currentProject.currentVideoUrl,
+      history: (currentProject.messages || []).map(m => ({ role:m.role, text:m.text }))
+    };
+
+    try{
+      if(!CHAT_WEBHOOK_URL) throw new Error('demo');
+      const data = await postJSON(CHAT_WEBHOOK_URL, payload);
+      hideTyping();
+      if(data.result_url){
+        addMessage(data.reply || 'Güncelledim.', 'assistant', data.result_url, 'video');
+      }else{
+        addMessage(data.reply || 'Anladım.', 'assistant');
+      }
+    }catch(err){
+      await new Promise(r=>setTimeout(r, 900));
+      hideTyping();
+      addMessage(CHAT_WEBHOOK_URL
+        ? ('Bağlantı hatası: ' + err.message)
+        : 'Demo modda — CHAT_WEBHOOK_URL bağlanınca bu isteği gerçekten işleyip videoyu güncelleyeceğim.', 'assistant');
+    }finally{
+      chatSend.disabled = false;
+    }
+  }
+
+  chatBack.addEventListener('click', async ()=>{
+    await persistCurrentProject();
+    await showHome();
+  });
+
+  chatFinish.addEventListener('click', async ()=>{
+    if(!currentProject) return;
+    currentProject.status = 'tamamlandi';
+    await persistCurrentProject();
+    await showHome();
+  });
+
+  // ================= SAHNE DÜZENLEME (saniye saniye) =================
+  function openEditDrawer(videoUrl){
+    editDrawer.classList.add('open');
+    editDrawer.dataset.targetVideo = videoUrl;
+    setupTimeline(videoUrl);
+    editDrawer.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+  editDrawerClose.addEventListener('click', ()=> editDrawer.classList.remove('open'));
+
+  function setupTimeline(videoUrl){
+    const helper = document.createElement('video');
+    helper.src = videoUrl; helper.crossOrigin = 'anonymous'; helper.muted = true;
+    helper.playsInline = true; helper.style.display = 'none';
+    document.body.appendChild(helper);
+    helper.addEventListener('loadedmetadata', ()=>{
+      const dur = Math.floor(helper.duration) || 5;
+      timeline.innerHTML = '';
+      for(let s = 0; s <= dur; s++){
+        const tick = document.createElement('div');
+        tick.className = 'tick'; tick.textContent = s + 's'; tick.dataset.ts = s;
+        tick.addEventListener('click', ()=> selectTimestamp(s, helper, tick));
+        timeline.appendChild(tick);
+      }
+      selectTimestamp(0, helper, timeline.firstChild);
+    });
+  }
+
+  function selectTimestamp(seconds, helper, tickEl){
+    document.querySelectorAll('.timeline .tick').forEach(t=>t.classList.remove('active'));
+    if(tickEl) tickEl.classList.add('active');
+    selectedTs = seconds;
+    tsLabel.textContent = seconds.toFixed(1) + 'sn';
+    const onSeeked = ()=>{
+      try{
+        const canvas = document.createElement('canvas');
+        canvas.width = helper.videoWidth || 320; canvas.height = helper.videoHeight || 180;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(helper, 0, 0, canvas.width, canvas.height);
+        framePreview.innerHTML = `<img src="${canvas.toDataURL('image/jpeg', 0.85)}">`;
+      }catch(e){ framePreview.innerHTML = ''; }
+      helper.removeEventListener('seeked', onSeeked);
+    };
+    helper.addEventListener('seeked', onSeeked);
+    helper.currentTime = seconds;
+  }
+
+  editApply.addEventListener('click', async ()=>{
+    const instruction = editInstruction.value.trim();
+    const targetVideo = editDrawer.dataset.targetVideo;
+    if(!instruction || !targetVideo){
+      editHint.textContent = 'Değişiklik talebini yaz.';
+      editHint.style.color = '#F87171';
+      return;
+    }
+    editHint.style.color = '';
+    editApply.disabled = true;
+    editApply.textContent = 'Güncelleniyor…';
+    const payload = { video_url: targetVideo, timestamp: selectedTs, edit_instruction: instruction };
+    try{
+      if(!EDIT_WEBHOOK_URL) throw new Error('EDIT_WEBHOOK_URL boş — demo modda çalışıyor');
+      const data = await postJSON(EDIT_WEBHOOK_URL, payload);
+      if(data.success === false){
+        editHint.textContent = data.error || 'Düzenleme başarısız oldu.';
+        editHint.style.color = '#F87171';
+        return;
+      }
+      if(data.result_url){
+        editDrawer.classList.remove('open');
+        addMessage(`${selectedTs.toFixed(1)}. saniyeyi güncelledim.`, 'assistant', data.result_url, 'video');
+      }
+    }catch(err){
+      editHint.textContent = EDIT_WEBHOOK_URL
+        ? ('Bağlantı hatası: ' + err.message)
+        : 'Demo modda — EDIT_WEBHOOK_URL bağlanınca bu saniye gerçekten güncellenecek.';
+    }finally{
+      editApply.disabled = false;
+      editApply.textContent = 'Bu saniyeyi güncelle';
+    }
+  });
+
+  // ================= BAŞLANGIÇ =================
+  initApp();
+</script>
+</body>
+</html>
